@@ -10,6 +10,13 @@ uv sync
 uv run uvicorn hoa_prserver.app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+Windows（PowerShell）如果遇到 `No module named 'hoa_prserver'`：
+
+```powershell
+Set-Location .\hoa-prServer
+E:/Code/RDME/.venv/Scripts/python.exe -m uvicorn hoa_prserver.app:app --app-dir src --host 0.0.0.0 --port 8000
+```
+
 ## Docker（WSL 测试）
 
 在 WSL 里进入仓库目录后：
@@ -60,6 +67,25 @@ docker compose up --build
   - 若仓库存在：创建分支、写入 `readme.toml` + 生成 `README.md`、push 并开 PR，返回 `pr_url`
   - 若仓库不存在：写入 pending 队列并（可选）发邮件提醒管理员创建仓库，返回 `request_id`
 
+- `POST /v1/courses/submit_ops`
+  - 用途：服务端读取仓库里的 `readme.toml`（不存在则用模板），按 `ops` 做“局部修改”，再自动开 PR。
+  - 入参：`{ repo_name?, course_code, course_name, repo_type, ops, dry_run? }`
+  - 说明：`dry_run=true` 时只返回 `toml`（不创建 PR）。
+
+## Web 前端（无构建）
+
+服务端内置一个静态页面，访问：`http://localhost:8000/web/`
+
+功能（简化版工作流）：
+
+- 左侧搜索栏：调用 `GET /v1/courses/index`（支持按 repo/course_code/course_name 搜索）
+- 点击条目：右侧展示当前 README（`GET /v1/courses/readme`，必要时由 readme.toml 渲染生成）
+- 选择“添加/修改”：使用表单生成 `ops` 并 `POST /v1/courses/submit_ops`
+  - 仓库存在：自动开 PR
+  - 仓库不存在：进入 pending（返回 `request_id`，并按小时轮询等待仓库被管理员创建）
+
+注意：页面右上角的 API Base 不要包含 `/web/`，应填 `http://localhost:8000` 或留空（同源）。
+
 - `GET /v1/requests/{request_id}`
   - 查询 pending 状态（`waiting_repo` / `pr_created` / `failed` 等）
 
@@ -73,6 +99,7 @@ docker compose up --build
 - `POLL_INTERVAL_SECONDS`：轮询 pending 的周期（默认 3600 秒）
 
 邮件提醒（可选，未配置会自动跳过）：
+
 - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` / `ADMIN_EMAIL`
 
 ## 代码结构（每个文件是干什么的）

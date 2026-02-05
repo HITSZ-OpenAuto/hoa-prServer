@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RDME 课程编辑</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.5.1/github-markdown.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/styles/github.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.10.0/lib/highlight.min.js"></script>
+    <style>
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+      /* GitHub markdown body tweaks to fit this app */
+      .markdown-body {
+        background: transparent;
+      }
+      .markdown-body pre { overflow: auto; }
+      .markdown-body table { display: block; overflow: auto; }
+    </style>
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <div class="max-w-[1400px] mx-auto p-4">
+      <header class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">RDME 课程编辑</h1>
+          <p class="text-sm text-slate-600">搜索课程 → 预览 README → 添加新内容（仅追加）→ 一键提交 PR 或申请新建仓库</p>
+        </div>
+        <div class="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+          <div>
+            <label class="text-xs text-slate-600">API Base（可留空，同源）</label>
+            <input id="apiBase" class="w-full md:w-72 px-3 py-2 border rounded" placeholder="例如 http://localhost:8000" />
+          </div>
+          <div>
+            <label class="text-xs text-slate-600">X-API-Key（如需）</label>
+            <input id="apiKey" class="w-full md:w-72 px-3 py-2 border rounded" placeholder="可留空" />
+          </div>
+        </div>
+      </header>
+
+      <main class="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-4">
+        <section class="lg:col-span-4 bg-white border rounded p-3">
+          <div class="flex gap-2">
+            <input id="search" class="flex-1 px-3 py-2 border rounded" placeholder="搜索：课程名 / course_code / repo" />
+            <button id="refresh" class="px-3 py-2 border rounded bg-slate-900 text-white">刷新</button>
+          </div>
+          <div class="mt-3 flex items-center justify-between">
+            <div class="text-xs text-slate-600"><span id="count">0</span> 个仓库</div>
+            <button id="toggleNew" class="text-xs px-2 py-1 border rounded">查不到？申请新建</button>
+          </div>
+
+          <div id="newRepoPanel" class="mt-3 p-3 border rounded bg-slate-50 hidden">
+            <div class="text-sm font-semibold">申请新建仓库</div>
+            <div class="text-xs text-slate-600 mt-1">说明：提交后若仓库不存在，后端会发邮件提醒管理员创建，并进入 pending 轮询。</div>
+            <div class="grid grid-cols-1 gap-2 mt-2">
+              <div>
+                <label class="text-xs text-slate-600">course_code（也作为默认 repo 名）</label>
+                <input id="newCourseCode" class="w-full px-3 py-2 border rounded mt-1" placeholder="例如 EXAMPLE1001" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">course_name</label>
+                <input id="newCourseName" class="w-full px-3 py-2 border rounded mt-1" placeholder="例如 示例课程" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">repo_type</label>
+                <select id="newRepoType" class="w-full px-3 py-2 border rounded mt-1">
+                  <option value="normal">normal</option>
+                  <option value="multi-project">multi-project</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">repo_name（可选覆盖，比如测试仓库 TEST1001）</label>
+                <input id="newRepoName" class="w-full px-3 py-2 border rounded mt-1" placeholder="可留空" />
+              </div>
+            </div>
+            <div class="flex gap-2 mt-3">
+              <button id="startNew" class="px-3 py-2 border rounded bg-emerald-600 text-white">开始编辑</button>
+              <button id="cancelNew" class="px-3 py-2 border rounded">取消</button>
+            </div>
+          </div>
+
+          <div id="repoList" class="mt-3 max-h-[70vh] overflow-auto divide-y"></div>
+        </section>
+
+        <section class="lg:col-span-8 bg-white border rounded p-3">
+          <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div class="text-sm text-slate-600">当前选择</div>
+              <div id="selectedTitle" class="text-lg font-semibold">未选择</div>
+              <div id="selectedMeta" class="text-xs text-slate-500"></div>
+            </div>
+            <div class="flex gap-2">
+              <button id="tabPreview" class="px-3 py-2 border rounded bg-slate-900 text-white">预览</button>
+              <button id="tabEdit" class="px-3 py-2 border rounded">编辑</button>
+            </div>
+          </div>
+
+          <div id="panelPreview" class="mt-3">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-600">README 来源：<span id="readmeSource" class="mono"></span></div>
+              <button id="reloadReadme" class="text-xs px-2 py-1 border rounded">重新加载</button>
+            </div>
+            <div class="mt-3 border rounded bg-white p-4">
+              <article id="readme" class="markdown-body"></article>
+            </div>
+          </div>
+
+          <div id="panelEdit" class="mt-3 hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-slate-600">操作</label>
+                <div class="mt-1 text-sm text-slate-800">仅支持新增/追加（不修改既有条目）</div>
+                <div class="text-xs text-slate-500 mt-1">复杂改动建议直接在 GitHub 上编辑。</div>
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">板块</label>
+                <select id="section" class="w-full px-3 py-2 border rounded mt-1">
+                  <option value="description">description（说明，仅新建时建议填写）</option>
+                  <option value="lecturer_review">lecturers.reviews（老师评价）</option>
+                  <option value="textbooks">textbooks（教材）</option>
+                  <option value="online_resources">online_resources（网课/资源）</option>
+                  <option value="course">course（课程内容）</option>
+                  <option value="exam">exam（考试）</option>
+                  <option value="lab">lab（实验）</option>
+                  <option value="advice">advice（建议）</option>
+                  <option value="schedule">schedule（安排）</option>
+                  <option value="related_links">related_links（相关链接）</option>
+                  <option value="misc">misc（杂项）</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="form" class="mt-3"></div>
+
+            <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="text-xs text-slate-600">署名 name</label>
+                <input id="authorName" class="w-full px-3 py-2 border rounded mt-1" placeholder="例如 哈基米" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">署名 link</label>
+                <input id="authorLink" class="w-full px-3 py-2 border rounded mt-1" placeholder="例如 https://hajimi.com" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-600">署名 date</label>
+                <input id="authorDate" class="w-full px-3 py-2 border rounded mt-1" placeholder="例如 2026-02-06" />
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
+              <div class="text-xs text-slate-600">提交会走：<span class="mono">POST /v1/courses/submit_ops</span></div>
+              <div class="flex gap-2">
+                <button id="dryRun" class="px-3 py-2 border rounded">Dry-run（只生成 TOML）</button>
+                <button id="submit" class="px-3 py-2 border rounded bg-emerald-600 text-white">提交（PR/排队）</button>
+              </div>
+            </div>
+
+            <div id="submitStatus" class="mt-3 hidden"></div>
+
+            <pre id="result" class="mt-3 bg-slate-900 text-slate-100 p-3 rounded text-xs overflow-auto max-h-[30vh]"></pre>
+          </div>
+        </section>
+      </main>
+
+      <footer class="text-xs text-slate-500 mt-6">
+        访问方式：<span class="mono">http://localhost:8000/web/</span>（同源免 CORS）。如配置了 API_KEY，请在右上角填入。
+      </footer>
+    </div>
+
+    <div id="toast" class="fixed bottom-4 right-4 z-50 hidden max-w-[520px]"></div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

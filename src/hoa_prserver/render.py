@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+import sys
 
 
 class RenderError(RuntimeError):
@@ -35,7 +36,8 @@ def render_readme_from_toml(toml_text: str) -> str:
 
         proc = subprocess.run(
             [
-                "python3",
+                sys.executable,
+                "-u",
                 str(converter),
                 "--input",
                 str(toml_path),

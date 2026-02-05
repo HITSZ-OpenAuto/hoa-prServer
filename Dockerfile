@@ -15,10 +15,12 @@ RUN pip install --no-cache-dir \
     fastapi>=0.115.0 \
     uvicorn[standard]>=0.30.0 \
     pydantic>=2.7.0 \
-    httpx>=0.27.0
+    httpx>=0.27.0 \
+    tomlkit>=0.13.2
 
 COPY src /app/src
 COPY scripts /app/scripts
+COPY web /app/web
 COPY README.md /app/README.md
 
 EXPOSE 8000
