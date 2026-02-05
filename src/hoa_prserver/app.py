@@ -1,3 +1,12 @@
+"""FastAPI application entry.
+
+Exposes JSON APIs for:
+- listing org repos
+- course/repo lookup and fetching readme.toml
+- submitting TOML to create PR (or enqueue pending if repo missing)
+- background poller that watches pending requests and creates PRs when repos appear
+"""
+
 from __future__ import annotations
 
 import asyncio

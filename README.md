@@ -10,6 +10,28 @@ uv sync
 uv run uvicorn hoa_prserver.app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+## Docker（WSL 测试）
+
+在 WSL 里进入仓库目录后：
+
+```bash
+docker build -t hoa-prserver:dev .
+docker run --rm -p 8000:8000 \
+  -e ORG_NAME=HITSZ-OpenAuto \
+  -e GITHUB_TOKEN="$GITHUB_TOKEN" \
+  -e API_KEY="$API_KEY" \
+  -v "$(pwd)/data:/data" \
+  hoa-prserver:dev
+```
+
+或者用 compose：
+
+```bash
+docker compose up --build
+```
+
+说明：容器里包含 `git`，用于自动 clone/push 开 PR；SQLite 默认挂载到 `./data/`。
+
 ## API
 
 - `GET /health`
@@ -48,3 +70,16 @@ uv run uvicorn hoa_prserver.app:app --host 0.0.0.0 --port 8000 --reload
 
 邮件提醒（可选，未配置会自动跳过）：
 - `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` / `ADMIN_EMAIL`
+
+## 代码结构（每个文件是干什么的）
+
+- `src/hoa_prserver/app.py`：FastAPI 路由 + 启动时的 pending 轮询任务
+- `src/hoa_prserver/github_client.py`：GitHub REST API（列仓库 / 查仓库 / 读文件 / 开 PR）
+- `src/hoa_prserver/pr_flow.py`：clone -> 写 TOML -> 生成 README -> commit/push -> 开 PR
+- `src/hoa_prserver/render.py`：纯渲染能力（把 TOML 转为 README.md 文本）
+- `src/hoa_prserver/db.py`：SQLite pending_requests 表（仓库不存在时入队等待）
+- `src/hoa_prserver/settings.py`：从环境变量加载配置
+- `src/hoa_prserver/auth.py`：可选 API Key（Header `X-Api-Key`）
+- `src/hoa_prserver/emailer.py`：SMTP 发邮件提醒管理员（可选）
+- `src/hoa_prserver/toml_templates.py`：normal / multi-project 的最小模板
+- `scripts/convert_toml_to_readme.py`：与 RDME 工具链一致的 TOML->README 转换脚本

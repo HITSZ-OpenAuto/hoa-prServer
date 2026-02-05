@@ -1,3 +1,13 @@
+"""Settings loader.
+
+Loads configuration from environment variables for:
+- GitHub org name + token
+- optional API key
+- sqlite path
+- poll interval
+- optional SMTP settings
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

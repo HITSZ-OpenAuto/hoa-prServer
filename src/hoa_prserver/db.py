@@ -1,3 +1,9 @@
+"""SQLite persistence for pending requests.
+
+When a target repo doesn't exist yet, we store the submitted TOML + metadata here.
+The background poller later checks GitHub and creates a PR once the repo appears.
+"""
+
 from __future__ import annotations
 
 import sqlite3

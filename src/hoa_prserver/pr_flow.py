@@ -1,3 +1,13 @@
+"""PR automation flow.
+
+Implements the end-to-end process:
+- clone repo
+- write readme.toml
+- generate README.md (reusing the same converter as render endpoint)
+- commit + push a branch
+- create a GitHub PR
+"""
+
 from __future__ import annotations
 
 import shutil

@@ -1,3 +1,8 @@
+"""CLI entrypoint.
+
+Runs Uvicorn to serve the FastAPI app.
+"""
+
 from __future__ import annotations
 
 import os

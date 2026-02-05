@@ -1,0 +1,19 @@
+services:
+  hoa-prserver:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      ORG_NAME: ${ORG_NAME:-HITSZ-OpenAuto}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      API_KEY: ${API_KEY:-}
+      HOA_PRSERVER_DB: /data/hoa_prserver.sqlite3
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-3600}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    volumes:
+      - ./data:/data

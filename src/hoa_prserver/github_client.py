@@ -1,3 +1,12 @@
+"""Thin GitHub REST API client.
+
+Responsibilities:
+- list org repos
+- check repo existence
+- read file contents (readme.toml)
+- create pull requests
+"""
+
 from __future__ import annotations
 
 import re

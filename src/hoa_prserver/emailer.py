@@ -1,3 +1,9 @@
+"""SMTP mail helper.
+
+Used to notify admins when a requested repo does not exist yet.
+If SMTP is not configured, sending is skipped.
+"""
+
 from __future__ import annotations
 
 import smtplib

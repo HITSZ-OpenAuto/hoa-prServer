@@ -1,3 +1,8 @@
+"""Auth helpers.
+
+Currently supports optional API key authentication via header `X-Api-Key`.
+"""
+
 from __future__ import annotations
 
 from fastapi import Header, HTTPException

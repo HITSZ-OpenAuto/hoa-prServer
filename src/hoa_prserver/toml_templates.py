@@ -1,3 +1,9 @@
+"""Small TOML templates returned to clients.
+
+If a repo (or readme.toml) doesn't exist yet, the frontend can start from a minimal
+template and then POST the edited TOML back to the server.
+"""
+
 from __future__ import annotations
 
 
