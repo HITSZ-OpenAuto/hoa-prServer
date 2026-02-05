@@ -76,7 +76,10 @@ def insert_pending(
             (org, repo, course_code, course_name, repo_type, toml_text, status, now, now),
         )
         conn.commit()
-        return int(cur.lastrowid)
+        lastrowid = cur.lastrowid
+        if lastrowid is None:
+            raise RuntimeError("sqlite did not return lastrowid")
+        return int(lastrowid)
 
 
 def list_by_status(db_path: Path, status: str, *, limit: int = 50) -> list[PendingRequest]:
