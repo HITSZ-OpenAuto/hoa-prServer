@@ -27,6 +27,29 @@ from .toml_templates import multiproject_template, normal_template
 log = logging.getLogger("hoa_prserver")
 
 
+def _should_hide_repo_from_listing(*, name: str, org_name: str) -> bool:
+    # Hide internal / meta repos by convention.
+    if not name:
+        return True
+    if name == org_name:
+        return True
+    if "-" in name:
+        return True
+    if name.startswith("."):
+        return True
+    if name.startswith("hoa-"):
+        return True
+    return False
+
+
+def _resolve_repo_name_or_422(*, repo_name: str | None, course_code: str | None) -> str:
+    raw = (repo_name or course_code or "").strip()
+    try:
+        return normalize_repo_name(raw)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"invalid repo name: {e}")
+
+
 def create_app() -> FastAPI:
     settings = load_settings()
     init_db(settings.db_path)
@@ -127,6 +150,10 @@ async def list_repos(
     _auth: None = Depends(_auth_dep),
 ) -> list[RepoInfo]:
     repos = await gh.list_org_repos(settings.org_name, limit=max(1, min(limit, 500)))
+
+    # Default filters (always applied)
+    repos = [r for r in repos if not _should_hide_repo_from_listing(name=r.name, org_name=settings.org_name)]
+
     if settings.allowed_repos is not None:
         repos = [r for r in repos if r.name in settings.allowed_repos]
     if q:
@@ -137,7 +164,7 @@ async def list_repos(
 
 @app.get("/v1/courses/lookup", response_model=LookupResponse)
 async def lookup_course(
-    course_code: str,
+    course_code: str | None = None,
     repo_name: str | None = None,
     course_name: str = "",
     repo_type: str = "normal",
@@ -145,16 +172,22 @@ async def lookup_course(
     gh: GitHubClient = Depends(_github_dep),
     _auth: None = Depends(_auth_dep),
 ) -> LookupResponse:
-    resolved_repo_name = normalize_repo_name(repo_name or course_code)
+    if not course_code and not repo_name:
+        raise HTTPException(status_code=422, detail="either course_code or repo_name is required")
+
+    resolved_repo_name = _resolve_repo_name_or_422(repo_name=repo_name, course_code=course_code)
     if not is_repo_allowed(settings, resolved_repo_name):
         raise HTTPException(status_code=403, detail="repo not allowed in current server config")
     repo = await gh.get_repo(settings.org_name, resolved_repo_name)
 
+    effective_course_code = (course_code or resolved_repo_name).strip()
+    effective_course_name = (course_name or effective_course_code).strip()
+
     if repo is None:
         tmpl = (
-            multiproject_template(course_name=course_name or course_code, course_code=course_code)
+            multiproject_template(course_name=effective_course_name, course_code=effective_course_code)
             if repo_type == "multi-project"
-            else normal_template(course_name=course_name or course_code, course_code=course_code)
+            else normal_template(course_name=effective_course_name, course_code=effective_course_code)
         )
         return LookupResponse(exists=False, repo=None, toml=tmpl)
 
@@ -163,9 +196,9 @@ async def lookup_course(
     )
     if toml_text is None:
         toml_text = (
-            multiproject_template(course_name=course_name or course_code, course_code=course_code)
+            multiproject_template(course_name=effective_course_name, course_code=effective_course_code)
             if repo_type == "multi-project"
-            else normal_template(course_name=course_name or course_code, course_code=course_code)
+            else normal_template(course_name=effective_course_name, course_code=effective_course_code)
         )
 
     return LookupResponse(exists=True, repo=RepoInfo(**repo.__dict__), toml=toml_text)
@@ -178,7 +211,7 @@ async def submit_course(
     gh: GitHubClient = Depends(_github_dep),
     _auth: None = Depends(_auth_dep),
 ) -> SubmitResponse:
-    resolved_repo_name = normalize_repo_name(req.repo_name or req.course_code)
+    resolved_repo_name = _resolve_repo_name_or_422(repo_name=req.repo_name, course_code=req.course_code)
     if not is_repo_allowed(settings, resolved_repo_name):
         raise HTTPException(status_code=403, detail="repo not allowed in current server config")
     repo = await gh.get_repo(settings.org_name, resolved_repo_name)

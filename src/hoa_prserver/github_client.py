@@ -153,6 +153,8 @@ def normalize_repo_name(repo: str) -> str:
     repo = repo.strip()
     if not repo or "/" in repo or "\\" in repo:
         raise ValueError("invalid repo name")
+    if repo == "-":
+        raise ValueError("invalid repo name")
     if not _RE_SAFE.match(repo):
         raise ValueError("invalid repo name")
     return repo
