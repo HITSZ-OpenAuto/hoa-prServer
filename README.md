@@ -18,6 +18,7 @@ uv run uvicorn hoa_prserver.app:app --host 0.0.0.0 --port 8000 --reload
 docker build -t hoa-prserver:dev .
 docker run --rm -p 8000:8000 \
   -e ORG_NAME=HITSZ-OpenAuto \
+  -e ALLOWED_REPOS=TEST1001 \
   -e GITHUB_TOKEN="$GITHUB_TOKEN" \
   -e API_KEY="$API_KEY" \
   -v "$(pwd)/data:/data" \
@@ -63,6 +64,7 @@ docker compose up --build
 ## 环境变量
 
 - `ORG_NAME`：GitHub 组织名（默认 `HITSZ-OpenAuto`）
+- `ALLOWED_REPOS`：可选；仓库白名单（逗号分隔）。设置后仅允许这些 repo（例如测试期：`TEST1001`）
 - `GITHUB_TOKEN`：需要 repo 写权限（创建分支、push、开 PR）
 - `API_KEY`：可选；设置后所有接口需携带 Header：`X-Api-Key: <API_KEY>`
 - `HOA_PRSERVER_DB`：SQLite 路径（默认 `./data/hoa_prserver.sqlite3`）

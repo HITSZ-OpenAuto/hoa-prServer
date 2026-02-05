@@ -21,7 +21,7 @@ from .emailer import send_admin_email
 from .github_client import GitHubClient, normalize_repo_name
 from .pr_flow import PRFlowError, create_pr_from_toml
 from .render import render_readme_from_toml
-from .settings import Settings, load_settings
+from .settings import Settings, is_repo_allowed, load_settings
 from .toml_templates import multiproject_template, normal_template
 
 log = logging.getLogger("hoa_prserver")
@@ -120,6 +120,8 @@ async def list_repos(
     _auth: None = Depends(_auth_dep),
 ) -> list[RepoInfo]:
     repos = await gh.list_org_repos(settings.org_name, limit=max(1, min(limit, 500)))
+    if settings.allowed_repos is not None:
+        repos = [r for r in repos if r.name in settings.allowed_repos]
     if q:
         q_lower = q.lower()
         repos = [r for r in repos if q_lower in (r.name or "").lower()]
@@ -136,6 +138,8 @@ async def lookup_course(
     _auth: None = Depends(_auth_dep),
 ) -> LookupResponse:
     repo_name = normalize_repo_name(course_code)
+    if not is_repo_allowed(settings, repo_name):
+        raise HTTPException(status_code=403, detail="repo not allowed in current server config")
     repo = await gh.get_repo(settings.org_name, repo_name)
 
     if repo is None:
@@ -165,6 +169,8 @@ async def submit_course(
     _auth: None = Depends(_auth_dep),
 ) -> SubmitResponse:
     repo_name = normalize_repo_name(req.course_code)
+    if not is_repo_allowed(settings, repo_name):
+        raise HTTPException(status_code=403, detail="repo not allowed in current server config")
     repo = await gh.get_repo(settings.org_name, repo_name)
 
     if repo is None:
@@ -236,6 +242,9 @@ async def _poller_loop(app: FastAPI) -> None:
         try:
             pending = list_by_status(settings.db_path, "waiting_repo", limit=50)
             for it in pending:
+                if not is_repo_allowed(settings, it.repo):
+                    update_status(settings.db_path, it.id, status="failed", last_error="repo not allowed")
+                    continue
                 repo = await gh.get_repo(it.org, it.repo)
                 if repo is None:
                     continue

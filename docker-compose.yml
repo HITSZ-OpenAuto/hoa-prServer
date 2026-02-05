@@ -5,6 +5,7 @@ services:
       - "8000:8000"
     environment:
       ORG_NAME: ${ORG_NAME:-HITSZ-OpenAuto}
+      ALLOWED_REPOS: ${ALLOWED_REPOS:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       API_KEY: ${API_KEY:-}
       HOA_PRSERVER_DB: /data/hoa_prserver.sqlite3

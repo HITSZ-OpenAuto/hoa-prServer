@@ -32,6 +32,22 @@ class Settings:
     smtp_from: str | None
     admin_email: str | None
 
+    allowed_repos: frozenset[str] | None
+
+
+def _parse_allowed_repos(raw: str | None) -> frozenset[str] | None:
+    if raw is None:
+        return None
+    parts = [p.strip() for p in raw.split(",")]
+    parts = [p for p in parts if p]
+    return frozenset(parts) if parts else None
+
+
+def is_repo_allowed(settings: Settings, repo: str) -> bool:
+    if settings.allowed_repos is None:
+        return True
+    return repo in settings.allowed_repos
+
 
 def load_settings() -> Settings:
     org_name = os.getenv("ORG_NAME", "HITSZ-OpenAuto")
@@ -49,6 +65,8 @@ def load_settings() -> Settings:
     smtp_from = os.getenv("SMTP_FROM")
     admin_email = os.getenv("ADMIN_EMAIL")
 
+    allowed_repos = _parse_allowed_repos(os.getenv("ALLOWED_REPOS"))
+
     return Settings(
         org_name=org_name,
         github_token=github_token,
@@ -61,4 +79,5 @@ def load_settings() -> Settings:
         smtp_password=smtp_password,
         smtp_from=smtp_from,
         admin_email=admin_email,
+        allowed_repos=allowed_repos,
     )
