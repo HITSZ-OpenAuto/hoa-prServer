@@ -49,12 +49,14 @@ docker compose up --build
 - `GET /v1/org/repos?q=&limit=`
   - 列出组织下仓库（可用 `q` 做简单过滤）
 
-- `GET /v1/courses/lookup?course_code=...&course_name=...&repo_type=normal|multi-project`
+- `GET /v1/courses/lookup?course_code=...&course_name=...&repo_type=normal|multi-project&repo_name=...`
   - 若仓库存在：返回 `repo` 基础字段 + 仓库里的 `readme.toml`（若不存在则返回模板）
   - 若仓库不存在：返回模板 TOML，`exists=false`
 
+说明：默认用 `course_code` 作为仓库名；如果仓库名与课程号不一致（例如测试仓库 `TEST1001` 对应课程 `PHYS1001`），请传 `repo_name=TEST1001`。
+
 - `POST /v1/courses/submit`
-  - 入参：`{ course_code, course_name, repo_type, toml }`
+  - 入参：`{ course_code, course_name, repo_type, toml, repo_name? }`
   - 若仓库存在：创建分支、写入 `readme.toml` + 生成 `README.md`、push 并开 PR，返回 `pr_url`
   - 若仓库不存在：写入 pending 队列并（可选）发邮件提醒管理员创建仓库，返回 `request_id`
 

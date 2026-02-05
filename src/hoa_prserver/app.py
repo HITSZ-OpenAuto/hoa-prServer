@@ -88,6 +88,13 @@ class LookupResponse(BaseModel):
 
 
 class SubmitRequest(BaseModel):
+    repo_name: str | None = Field(
+        default=None,
+        description=(
+            "Optional: override target GitHub repo name. "
+            "If omitted, course_code is used as repo name."
+        ),
+    )
     course_code: str = Field(..., description="Course code, also used as repo name by default")
     course_name: str
     repo_type: str = Field("normal", description="normal | multi-project")
@@ -131,16 +138,17 @@ async def list_repos(
 @app.get("/v1/courses/lookup", response_model=LookupResponse)
 async def lookup_course(
     course_code: str,
+    repo_name: str | None = None,
     course_name: str = "",
     repo_type: str = "normal",
     settings: Settings = Depends(_settings_dep),
     gh: GitHubClient = Depends(_github_dep),
     _auth: None = Depends(_auth_dep),
 ) -> LookupResponse:
-    repo_name = normalize_repo_name(course_code)
-    if not is_repo_allowed(settings, repo_name):
+    resolved_repo_name = normalize_repo_name(repo_name or course_code)
+    if not is_repo_allowed(settings, resolved_repo_name):
         raise HTTPException(status_code=403, detail="repo not allowed in current server config")
-    repo = await gh.get_repo(settings.org_name, repo_name)
+    repo = await gh.get_repo(settings.org_name, resolved_repo_name)
 
     if repo is None:
         tmpl = (
@@ -150,7 +158,9 @@ async def lookup_course(
         )
         return LookupResponse(exists=False, repo=None, toml=tmpl)
 
-    toml_text = await gh.get_file_text(settings.org_name, repo_name, "readme.toml", ref=repo.default_branch)
+    toml_text = await gh.get_file_text(
+        settings.org_name, resolved_repo_name, "readme.toml", ref=repo.default_branch
+    )
     if toml_text is None:
         toml_text = (
             multiproject_template(course_name=course_name or course_code, course_code=course_code)
@@ -168,16 +178,16 @@ async def submit_course(
     gh: GitHubClient = Depends(_github_dep),
     _auth: None = Depends(_auth_dep),
 ) -> SubmitResponse:
-    repo_name = normalize_repo_name(req.course_code)
-    if not is_repo_allowed(settings, repo_name):
+    resolved_repo_name = normalize_repo_name(req.repo_name or req.course_code)
+    if not is_repo_allowed(settings, resolved_repo_name):
         raise HTTPException(status_code=403, detail="repo not allowed in current server config")
-    repo = await gh.get_repo(settings.org_name, repo_name)
+    repo = await gh.get_repo(settings.org_name, resolved_repo_name)
 
     if repo is None:
         request_id = insert_pending(
             settings.db_path,
             org=settings.org_name,
-            repo=repo_name,
+            repo=resolved_repo_name,
             course_code=req.course_code,
             course_name=req.course_name,
             repo_type=req.repo_type,
@@ -187,9 +197,9 @@ async def submit_course(
 
         send_admin_email(
             settings,
-            subject=f"[hoa-prServer] 仓库不存在：{req.course_code}",
+            subject=f"[hoa-prServer] 仓库不存在：{resolved_repo_name}",
             text=(
-                f"收到提交，但组织 {settings.org_name} 下尚不存在仓库 {repo_name}。\n"
+                f"收到提交，但组织 {settings.org_name} 下尚不存在仓库 {resolved_repo_name}。\n"
                 f"course_code: {req.course_code}\n"
                 f"course_name: {req.course_name}\n"
                 f"request_id: {request_id}\n\n"
@@ -206,7 +216,7 @@ async def submit_course(
         pr = await create_pr_from_toml(
             gh=gh,
             org=settings.org_name,
-            repo=repo_name,
+            repo=resolved_repo_name,
             default_branch=repo.default_branch,
             github_token=settings.github_token,
             toml_text=req.toml,
